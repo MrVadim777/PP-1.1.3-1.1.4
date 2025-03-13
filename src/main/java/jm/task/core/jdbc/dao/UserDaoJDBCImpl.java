@@ -27,7 +27,8 @@ public class UserDaoJDBCImpl implements UserDao {
             statement.executeUpdate(CREATE_TABLE);
             System.out.println("Таблица пользователей создана.");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка создания таблицы: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка создания таблицы: "
+                    + e.getMessage(), e);
         }
     }
 
@@ -38,16 +39,14 @@ public class UserDaoJDBCImpl implements UserDao {
             statement.executeUpdate(DROP_TABLE);
             System.out.println("Таблица пользователей удалена.");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка удаления таблицы: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка удаления таблицы: "
+                    + e.getMessage(), e);
         }
     }
 
     @Override
     public void saveUser(String name, String lastName, byte age) {
-        Connection connection = null;
-
-        try {
-            connection = Util.getConnection();
+        try (Connection connection = Util.getConnection()) {
             connection.setAutoCommit(false);
 
             try (PreparedStatement preparedStatement = connection.prepareStatement(INSERT_USER)) {
@@ -55,62 +54,45 @@ public class UserDaoJDBCImpl implements UserDao {
                 preparedStatement.setString(2, lastName);
                 preparedStatement.setByte(3, age);
                 preparedStatement.executeUpdate();
-            }
 
-            connection.commit();
-            System.out.println("Пользователь '" + name + "' добавлен.");
+                connection.commit();
+                System.out.println("Пользователь '" + name + "' добавлен.");
 
-        } catch (SQLException e) {
-            try {
-                connection.rollback();
-                System.out.println("Rollback при добавлении пользователя '" + name + "'.");
             } catch (SQLException rollbackEx) {
-                System.err.println("Ошибка отката: " + rollbackEx.getMessage());
+                connection.rollback();
+                System.out.println("Rollback при добавлении пользователя '"
+                        + name + "'.");
+                throw new RuntimeException("Ошибка добавления пользователя: "
+                        + rollbackEx.getMessage(), rollbackEx);
             }
-            throw new RuntimeException("Ошибка добавления пользователя: " + e.getMessage(), e);
-        } finally {
-            try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (SQLException closeEx) {
-                System.err.println("Ошибка закрытия соединения: " + closeEx.getMessage());
-            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка соединения с БД: "
+                    + e.getMessage(), e);
         }
     }
 
     @Override
     public void removeUserById(long id) {
-        Connection connection = null;
-
-        try {
-            connection = Util.getConnection();
+        try (Connection connection = Util.getConnection()) {
             connection.setAutoCommit(false);
 
             try (PreparedStatement preparedStatement = connection.prepareStatement(DELETE_USER)) {
                 preparedStatement.setLong(1, id);
                 preparedStatement.executeUpdate();
-            }
 
-            connection.commit();
-            System.out.println("Пользователь с id " + id + " удалён.");
+                connection.commit();
+                System.out.println("Пользователь с id " + id + " удалён.");
 
-        } catch (SQLException e) {
-            try {
-                connection.rollback();
-                System.out.println("Rollback при удалении пользователя с id " + id + ".");
             } catch (SQLException rollbackEx) {
-                System.err.println("Ошибка отката: " + rollbackEx.getMessage());
+                connection.rollback();
+                System.out.println("Rollback при удалении пользователя с id "
+                        + id + ".");
+                throw new RuntimeException("Ошибка удаления пользователя: "
+                        + rollbackEx.getMessage(), rollbackEx);
             }
-            throw new RuntimeException("Ошибка удаления пользователя: " + e.getMessage(), e);
-        } finally {
-            try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (SQLException closeEx) {
-                System.err.println("Ошибка закрытия соединения: " + closeEx.getMessage());
-            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка соединения с БД: "
+                    + e.getMessage(), e);
         }
     }
 
@@ -132,7 +114,8 @@ public class UserDaoJDBCImpl implements UserDao {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка получения пользователей: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка получения пользователей: "
+                    + e.getMessage(), e);
         }
 
         return users;
@@ -145,7 +128,8 @@ public class UserDaoJDBCImpl implements UserDao {
             statement.executeUpdate(TRUNCATE_TABLE);
             System.out.println("Таблица очищена.");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка очистки таблицы: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка очистки таблицы: "
+                    + e.getMessage(), e);
         }
     }
 }
