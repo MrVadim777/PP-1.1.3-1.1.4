@@ -9,6 +9,7 @@ import java.util.List;
 
 public class UserDaoJDBCImpl implements UserDao {
 
+    private final Connection connection = Util.getConnection();
     private static final String CREATE_TABLE = "CREATE TABLE IF NOT EXISTS users (" +
             "id BIGINT PRIMARY KEY AUTO_INCREMENT, " +
             "name VARCHAR(50), " +
@@ -20,101 +21,97 @@ public class UserDaoJDBCImpl implements UserDao {
     private static final String SELECT_USERS = "SELECT * FROM users;";
     private static final String TRUNCATE_TABLE = "TRUNCATE TABLE users;";
 
+    @Override
     public void createUsersTable() {
-        try (Connection connection = Util.getConnection();
-             Statement statement = connection.createStatement()) {
+        try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(CREATE_TABLE);
             System.out.println("Таблица пользователей создана.");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка создания таблицы: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка создания таблицы: "
+                    + e.getMessage(), e);
         }
     }
 
+    @Override
     public void dropUsersTable() {
-        try (Connection connection = Util.getConnection();
-             Statement statement = connection.createStatement()) {
+        try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(DROP_TABLE);
             System.out.println("Таблица пользователей удалена.");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка удаления таблицы: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка удаления таблицы: "
+                    + e.getMessage(), e);
         }
     }
 
+    @Override
     public void saveUser(String name, String lastName, byte age) {
-        Connection connection = null;
-
-        try {
-            connection = Util.getConnection();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(INSERT_USER)) {
             connection.setAutoCommit(false);
 
-            try (PreparedStatement preparedStatement = connection.prepareStatement(INSERT_USER)) {
-                preparedStatement.setString(1, name);
-                preparedStatement.setString(2, lastName);
-                preparedStatement.setByte(3, age);
-                preparedStatement.executeUpdate();
-            }
+            preparedStatement.setString(1, name);
+            preparedStatement.setString(2, lastName);
+            preparedStatement.setByte(3, age);
+            preparedStatement.executeUpdate();
 
             connection.commit();
             System.out.println("Пользователь '" + name + "' добавлен.");
-
-        } catch (SQLException e) {
+        } catch (SQLException rollbackEx) {
             try {
                 connection.rollback();
-                System.out.println("Rollback при добавлении пользователя '" + name + "'.");
-            } catch (SQLException rollbackEx) {
-                System.err.println("Ошибка отката: " + rollbackEx.getMessage());
+                System.out.println("Rollback при добавлении пользователя '"
+                        + name + "'.");
+            } catch (SQLException e) {
+                System.err.println("Ошибка при вызове Rollback: "
+                        + e.getMessage());
             }
-            throw new RuntimeException("Ошибка добавления пользователя: " + e.getMessage(), e);
+
+            throw new RuntimeException("Ошибка добавления пользователя: "
+                    + rollbackEx.getMessage(), rollbackEx);
         } finally {
             try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (SQLException closeEx) {
-                System.err.println("Ошибка закрытия соединения: " + closeEx.getMessage());
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                System.err.println("Ошибка возвращения setAutoCommit в true: "
+                        + e.getMessage());
             }
         }
     }
 
+    @Override
     public void removeUserById(long id) {
-        Connection connection = null;
-
-        try {
-            connection = Util.getConnection();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(DELETE_USER)) {
             connection.setAutoCommit(false);
 
-            try (PreparedStatement preparedStatement = connection.prepareStatement(DELETE_USER)) {
-                preparedStatement.setLong(1, id);
-                preparedStatement.executeUpdate();
-            }
+            preparedStatement.setLong(1, id);
+            preparedStatement.executeUpdate();
 
             connection.commit();
             System.out.println("Пользователь с id " + id + " удалён.");
-
-        } catch (SQLException e) {
+        } catch (SQLException rollbackEx) {
             try {
                 connection.rollback();
-                System.out.println("Rollback при удалении пользователя с id " + id + ".");
-            } catch (SQLException rollbackEx) {
-                System.err.println("Ошибка отката: " + rollbackEx.getMessage());
+            } catch (SQLException e) {
+                System.err.println("Ошибка при вызове Rollback: "
+                        + e.getMessage());
             }
-            throw new RuntimeException("Ошибка удаления пользователя: " + e.getMessage(), e);
+
+            throw new RuntimeException("Ошибка удаления пользователя: "
+                    + rollbackEx.getMessage(), rollbackEx);
         } finally {
             try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (SQLException closeEx) {
-                System.err.println("Ошибка закрытия соединения: " + closeEx.getMessage());
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                System.err.println("Ошибка возвращения setAutoCommit в true: "
+                        + e.getMessage());
             }
         }
     }
 
+    @Override
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
 
-        try (Connection connection = Util.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(SELECT_USERS);
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SELECT_USERS);
              ResultSet rs = preparedStatement.executeQuery()) {
 
             while (rs.next()) {
@@ -127,19 +124,20 @@ public class UserDaoJDBCImpl implements UserDao {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка получения пользователей: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка получения пользователей: "
+                    + e.getMessage(), e);
         }
-
         return users;
     }
 
+    @Override
     public void cleanUsersTable() {
-        try (Connection connection = Util.getConnection();
-             Statement statement = connection.createStatement()) {
+        try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(TRUNCATE_TABLE);
             System.out.println("Таблица очищена.");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка очистки таблицы: " + e.getMessage(), e);
+            throw new RuntimeException("Ошибка очистки таблицы: "
+                    + e.getMessage(), e);
         }
     }
 }
